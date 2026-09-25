@@ -1,0 +1,45 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# next.js build output
+.next/
+out/
+build/
+dist/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# testing / coverage
+coverage/
+
+# env files (never commit secrets)
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+
+# local runtime data (SQLite pipeline DB, scraped images, logs)
+data/*
+!data/.gitkeep
+!data/classifier-comparison.json
+
+# OCR trained data (large binaries, fetched at setup time, not source)
+*.traineddata
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / editor cruft
+.DS_Store
+.vscode/
+.idea/
+
+# vercel
+.vercel
