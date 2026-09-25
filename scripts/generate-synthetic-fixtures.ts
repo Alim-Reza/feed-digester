@@ -1,7 +1,7 @@
 /**
  * Populates tests/fixtures/linkedin/ with hand-built HTML that mirrors LinkedIn's real post
  * markup as confirmed via `pnpm diagnose:feed` on 2026-09-25 (see src/collector/parse/
- * selectors.ts and PLAN.md slice 3): `[role="listitem"]` containers, hashed/atomic CSS
+ * selectors.ts and docs/plan.md slice 3): `[role="listitem"]` containers, hashed/atomic CSS
  * classes (ignored by the parser), author name from a "Hide post by <Name>" aria-label,
  * headline/timestamp as sibling <p> elements, and post text in
  * `[data-testid="expandable-text-box"]`. These synthetic fixtures fill in shapes the one

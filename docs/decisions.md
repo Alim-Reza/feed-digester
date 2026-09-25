@@ -1,14 +1,14 @@
 # Decisions
 
-Major decisions extracted from `spec.md`, the `grill-section*.md` back-and-forth, `docs/adr/`,
-and what actually shipped. Grill IDs (e.g. "B3/Q8") let you trace a decision back to its original
-question; `plan.md`/`PLAN.md`'s per-slice notes have the implementation-time detail behind most
-of these. Where the shipped code differs from what was decided on paper, that's called out
+Major decisions extracted from `docs/spec.md`, the `docs/grill/grill-section*.md` back-and-forth,
+`docs/adr/`, and what actually shipped. Grill IDs (e.g. "B3/Q8") let you trace a decision back to
+its original question; `docs/plan.md`'s per-slice notes have the implementation-time detail behind
+most of these. Where the shipped code differs from what was decided on paper, that's called out
 explicitly rather than smoothed over.
 
 ## 1. Orchestration: no Vercel Eve
 
-**Problem.** `spec.md` asked for Vercel Eve to orchestrate collection through digest generation,
+**Problem.** `docs/spec.md` asked for Vercel Eve to orchestrate collection through digest generation,
 with durable execution, scheduling, and retry/resume.
 
 **Options considered.** (a) A plain deterministic pipeline, Eve-free. (b) Eve as specified — an
@@ -27,7 +27,7 @@ a Postgres world, which is disproportionate infrastructure for a single-user loc
 writing them by hand (ADR 0002). Gained: zero extra infrastructure, no LLM latency/cost on every
 stage transition, a fully deterministic and testable stage order.
 
-**Where.** `src/pipeline/`, `src/worker/`. Eve is deferred to `improvement.md` as a future _"chat
+**Where.** `src/pipeline/`, `src/worker/`. Eve is deferred to `docs/improvements.md` as a future _"chat
 with my digests"_ agent — a role where letting an LLM choose between tools is actually the point.
 
 ## 2. Durability: a SQLite-backed pipeline runner
@@ -188,10 +188,10 @@ external model judge the comparison directly, with no ground truth at all.
 
 **What actually happened.** (b) — nobody labeled 150 posts; `pnpm compare:classifiers` (built for
 this) dumped 101 real posts' worth of both classifiers' output to JSON, an external LLM judged
-it, and the verdict (`bake-off-verdict.md`) became the decision. (a) still exists and still
+it, and the verdict (`docs/bake-off-verdict.md`) became the decision. (a) still exists and still
 works — it's just unused.
 
-**Verdict, verified against `bake-off-verdict.md`.** gemma4 clearly more accurate on category
+**Verdict, verified against `docs/bake-off-verdict.md`.** gemma4 clearly more accurate on category
 (44/101 primary-category disagreements, gemma4 consistently more semantically correct). gemma4's
 own relevance number badly miscalibrated — mean 0.791 vs. Laya's 0.581, 65/101 posts scored ≥0.8
 vs. Laya's 1/101. Laya's category scores also looked "compressed" (moderately high across several

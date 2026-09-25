@@ -1,9 +1,10 @@
 # Architecture
 
-Full rationale lives in `docs/adr/` and `docs/DECISIONS.md`; `docs/PROJECT_MEMORY.md`
+Full rationale lives in `docs/adr/` and `docs/decisions.md`; `docs/project-memory.md`
 has the fuller architecture writeup this file is the short version of.
-(`plan.md`, the originally-approved plan, no longer holds separate content —
-see the warning at the top of `PLAN.md`.)
+(The originally-approved plan doc no longer holds separate content — it was
+lost to a case-insensitive-filesystem collision; see the warning at the top
+of `docs/plan.md`.)
 
 ## Two processes, one database
 
@@ -22,7 +23,7 @@ ADR 0001. The pipeline's stage order is fixed and lives in `src/pipeline/`.
 
 `collect → ocr → filter → classify → extract-jobs → cluster → summarize →
 digest → retention`, each idempotent and resumable — see ADR 0002 and
-`docs/PROJECT_MEMORY.md`'s stage-by-stage summary.
+`docs/project-memory.md`'s stage-by-stage summary.
 
 ## Interfaces meant to be swapped
 
@@ -45,6 +46,6 @@ of each LLM stage.
 
 ## Directory layout
 
-See `docs/PROJECT_MEMORY.md`'s "Where to start reading code" for the real
+See `docs/project-memory.md`'s "Where to start reading code" for the real
 tree and the reasoning behind each directory, including which
 `src/services/*` subdirectories are empty scaffold remnants.

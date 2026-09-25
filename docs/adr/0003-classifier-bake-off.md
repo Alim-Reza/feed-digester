@@ -22,7 +22,7 @@ both classifiers over 101 real collected posts (`pnpm compare:classifiers` →
 `data/classifier-comparison.json`, gitignored since it's real LinkedIn
 content) and handed the side-by-side JSON to an external judge model, which
 read every post's actual text alongside both classifiers' raw output. Full
-verdict: `bake-off-verdict.md` (repo root, not committed — same reason).
+verdict: `docs/bake-off-verdict.md` (gitignored, not committed — same reason).
 
 **Findings:**
 

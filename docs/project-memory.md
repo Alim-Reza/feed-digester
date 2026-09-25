@@ -2,8 +2,8 @@
 
 Final mental model of `feed-digester`, verified against the actual code and tests as they stand
 today (2026-09-25, end of slice 12 + the post-launch scheduler fix + the ADR 0003 bake-off).
-This is the doc to read first; `docs/DECISIONS.md` has the why behind each call,
-`docs/BUILD_JOURNAL.md` has the how-we-got-here narrative, `docs/SESSION_HANDOFF.md` is for
+This is the doc to read first; `docs/decisions.md` has the why behind each call,
+`docs/build-journal.md` has the how-we-got-here narrative, `docs/session-handoff.md` is for
 picking the work back up.
 
 ## What it is
@@ -164,7 +164,7 @@ frozen as static HTML).
 - **No automated test opens a real browser, calls real Ollama, or loads a real OCR/classification
   model.** Every such path is tested against a fake behind its interface. This is deliberate
   (grill J9), not an oversight — but it means CI-green doesn't prove the live paths work; those
-  were verified by manual smoke tests during each slice (see `PLAN.md`'s per-slice notes) and,
+  were verified by manual smoke tests during each slice (see `docs/plan.md`'s per-slice notes) and,
   for the UI, by hand-curling a `next dev` server against seeded data.
 - **No auth, localhost only** (grill I2) — by design for V0, not a gap, but worth stating plainly
   since `app/operations` can trigger real collection/processing with no access control at all.
@@ -183,5 +183,5 @@ frozen as static HTML).
    polling/scheduling/resume fit together.
 5. `src/web/context.ts` — the equivalent entrypoint for the `web` process; then any file under
    `app/` for a concrete read/write example.
-6. `PLAN.md` — the slice-by-slice build log, with far more implementation detail per slice than
+6. `docs/plan.md` — the slice-by-slice build log, with far more implementation detail per slice than
    this document; treat it as the detailed changelog this document summarizes.

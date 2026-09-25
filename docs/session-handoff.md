@@ -2,33 +2,34 @@
 
 For picking this project back up — a fresh LLM coding session or a human. Written 2026-09-25,
 end of the session that implemented slices 7-12, ran the ADR 0003 classifier bake-off, and fixed
-a scheduler bug found live. Read `docs/PROJECT_MEMORY.md` first for the architecture; this doc is
+a scheduler bug found live. Read `docs/project-memory.md` first for the architecture; this doc is
 state and next steps, not a tutorial.
 
 ## Current state
 
-- All 12 slices from `plan.md` §6 (tracked in `PLAN.md`) are done. `pnpm lint && pnpm test &&
+- All 12 slices from `docs/plan.md` §6 are done. `pnpm lint && pnpm test &&
 pnpm build` pass — 272 tests across 42 files.
 - ADR 0003 is **decided**: `classification.active: 'gemma4'` in `digest.config.ts`, with
   relevance computed from category scores (`relevanceWeights`) instead of trusting gemma4's own
-  relevance number. See `docs/adr/0003-classifier-bake-off.md` and `docs/DECISIONS.md` §9.
+  relevance number. See `docs/adr/0003-classifier-bake-off.md` and `docs/decisions.md` §9.
 - `ollama pull embeddinggemma` is done (needed for the `cluster` stage's embeddings).
 - `pnpm login` has been run once; the `main` Chrome profile is logged in.
 - A scheduler bug (unbounded retry on a failing scheduled run) was found live and fixed —
-  `docs/DECISIONS.md` §10.
+  `docs/decisions.md` §10.
 - There is **no git history** — zero commits, by deliberate choice (grill K1/K2: "don't bother
   with git now"). If this project gets a git repo, this is a natural point to make the first
   commit; there's a full, working tree to commit as-is.
 - `git diff`/`git log` were not usable during this session's own audit for exactly this reason —
   "verify against the code" meant reading source files directly, not diffing against history.
 
-## Important files (beyond what `PROJECT_MEMORY.md` already covers)
+## Important files (beyond what `docs/project-memory.md` already covers)
 
 - `digest.config.ts` — read this before changing any behavior; it's the single source of truth
   for every threshold, weight, and toggle.
-- `PLAN.md` (== `plan.md` on this filesystem, see the warning at its own top) — the detailed,
-  slice-by-slice changelog. More implementation detail lives there than in any other doc.
-- `bake-off-verdict.md` and `data/classifier-comparison.json` — both gitignored (derived from
+- `docs/plan.md` (used to collide with `plan.md` under a different case on this filesystem — see
+  the warning at its own top) — the detailed, slice-by-slice changelog. More implementation detail
+  lives there than in any other doc.
+- `docs/bake-off-verdict.md` and `data/classifier-comparison.json` — both gitignored (derived from
   real LinkedIn content). If either is missing, the bake-off can be re-run with `pnpm
 compare:classifiers` (no ground truth needed) or `pnpm evaluate:classifiers` (needs labels in
   `/posts` first).
@@ -56,7 +57,7 @@ compare:classifiers` (no ground truth needed) or `pnpm evaluate:classifiers` (ne
   will silently prerender them as static HTML at build time. This bit us once already (`/` and
   `/digests` in slice 10).
 
-## Known issues (see `PROJECT_MEMORY.md`'s "Known limitations" for the full verified list)
+## Known issues (see `docs/project-memory.md`'s "Known limitations" for the full verified list)
 
 1. ADR 0002 claims exponential backoff on retry; no backoff exists in code.
 2. `relevanceProfile` in config is dead — nothing reads it.
@@ -83,7 +84,7 @@ Roughly in order of what would matter most next:
    judge verdict already in hand.
 3. Decide `relevanceProfile`'s fate: wire it into Laya's relevance question (the original grill
    D5 intent) or remove the dead field.
-4. Pick something off `improvement.md` — phone access, weekly roll-ups, job-market trends over
+4. Pick something off `docs/improvements.md` — phone access, weekly roll-ups, job-market trends over
    time, training on 👍/👎 feedback, and an Eve "chat with my digests" agent are all explicitly
    scoped out of V0 and sitting there ready to pick up.
 5. Consider whether retention's actual default (14) should change to match the grill decision

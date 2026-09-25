@@ -4,12 +4,14 @@ A local-first tool that collects your LinkedIn feed, filters the noise,
 classifies and summarizes what's left, and produces a short daily digest
 instead of an infinite scroll.
 
-See `spec.md` for the original brief, `docs/PROJECT_MEMORY.md` for the
-current architecture and mental model, `docs/DECISIONS.md` for why it's
-built this way, and `PLAN.md` for the slice-by-slice build log. (`plan.md`
-and `PLAN.md` are the same file on a case-insensitive filesystem — see the
-warning at the top of `PLAN.md` — so `plan.md` no longer holds separate
-content of its own.)
+See `docs/spec.md` for the original brief, `docs/project-memory.md` for the
+current architecture and mental model, `docs/decisions.md` for why it's
+built this way, and `docs/plan.md` for the slice-by-slice build log. (Early
+on, two differently-cased paths for this same tracker — `plan.md` and
+`PLAN.md` — collided on macOS's case-insensitive filesystem and destroyed the
+originally-approved architecture doc; see the warning at the top of
+`docs/plan.md`. All docs now live under one lowercase `docs/` tree to avoid
+repeating that.)
 
 ## ⚠️ Before you use this
 
@@ -73,9 +75,11 @@ Open http://localhost:3000.
 - `components/`, `lib/` — shadcn/ui components and its `cn()`-style helpers.
 - `src/` — everything else: config, db, collector, services, llm, pipeline,
   worker, logging, and `web/` (the `web` process's own DB context and view
-  helpers). See `ARCHITECTURE.md` and `docs/PROJECT_MEMORY.md`.
+  helpers). See `docs/architecture.md` and `docs/project-memory.md`.
 - `data/` — gitignored: SQLite database, saved images, logs, HTML snapshots.
-- `docs/adr/` — architecture decision records for the departures from `spec.md`.
+- `docs/adr/` — architecture decision records for the departures from `docs/spec.md`.
+- `docs/` — all other project documentation (spec, architecture, decisions,
+  build journal, session handoff, slice plan, grill Q&A, drafts).
 
 ## License
 

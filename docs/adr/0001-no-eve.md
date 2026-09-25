@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-`spec.md` calls for Vercel Eve to orchestrate the pipeline: durable execution,
+`docs/spec.md` calls for Vercel Eve to orchestrate the pipeline: durable execution,
 scheduling, and retry/resume across collection, filtering, classification, job
 extraction, clustering, summarization, and digest assembly.
 
@@ -29,7 +29,7 @@ V0 uses a deterministic pipeline runner (ADR 0002) that stores run and
 per-post progress in the same SQLite database as everything else. Stage order
 is code, not model output.
 
-Eve is deferred to `improvement.md` as a _"chat with my digests"_ agent — a
+Eve is deferred to `docs/improvements.md` as a _"chat with my digests"_ agent — a
 role where letting an LLM choose between tools (search posts, re-summarize a
 cluster, explain a drop reason) is actually the point, unlike the fixed
 processing pipeline.

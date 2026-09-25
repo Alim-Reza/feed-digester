@@ -1,13 +1,13 @@
 # Build Journal
 
-How `feed-digester` actually got built, reconstructed from `spec.md`, the three rounds of
-`grill-section*.md`, `plan.md`/`PLAN.md`'s per-slice notes, `docs/adr/`, and `bake-off-verdict.md`.
-Chronological, including the approaches that were tried or proposed and then rejected — those are
-as much a part of the record as what shipped.
+How `feed-digester` actually got built, reconstructed from `docs/spec.md`, the three rounds of
+`docs/grill/grill-section*.md`, `docs/plan.md`'s per-slice notes, `docs/adr/`, and
+`docs/bake-off-verdict.md`. Chronological, including the approaches that were tried or proposed and
+then rejected — those are as much a part of the record as what shipped.
 
 ## 1. The spec
 
-`spec.md` describes a local-first LinkedIn feed digester: Playwright collection through a
+`docs/spec.md` describes a local-first LinkedIn feed digester: Playwright collection through a
 dedicated Chrome profile, SQLite storage, Vercel Eve for orchestration, Laya (or "another
 lightweight local classifier") for cheap classification, a local LLM via Ollama for
 summarization/extraction, Groq as an optional fallback, and a Next.js digest UI. It explicitly
@@ -17,13 +17,13 @@ unchanged.
 
 ## 2. The grill — three rounds of questions
 
-**Round 1** (`grill-section.md`): intent and usage, risk/compliance (the account-safety
+**Round 1** (`docs/grill/grill-section.md`): intent and usage, risk/compliance (the account-safety
 questions that produced decision §3's read-only/separate-account posture), collection behavior,
 filtering/classification, the tools the spec named but didn't fully specify (Eve, Laya), local
 inference constraints, jobs, clustering/summarization, UI, tech stack, and process. Many answers
 were "your call," deferring to the builder's judgment with the expectation of a written rationale.
 
-**Round 2** (`grill-section-part2.md`): research findings that changed the plan materially —
+**Round 2** (`docs/grill/grill-section-part2.md`): research findings that changed the plan materially —
 
 - **The machine**: an M1 Pro with 16GB RAM. `gemma4` alone loads at ~10GB; running it alongside
   Laya, Chrome, and Next.js at the same time doesn't fit. This became the "one stage at a time,
@@ -45,20 +45,21 @@ policy, clustering approach, UI scope, and the full tech stack (pnpm, Next.js Ap
 on SQLite, Zod v4, Vitest with saved-fixture-only collector tests, pino, shadcn/ui with dark
 mode).
 
-**Round 3** (`grill-section-part3.md`), short: one correction (the Workflow SDK's local world
+**Round 3** (`docs/grill/grill-section-part3.md`), short: one correction (the Workflow SDK's local world
 doesn't actually durable-resume, contrary to what round 2 had said), the sqlite-backed-runner
 decision confirmed, and two remaining questions (Bangla handling, VPS scope) closed out.
 
 ## 3. `plan.md` — approved, then destroyed by its own filesystem
 
 A `plan.md` was written and approved before any code, covering the schema, citation-validation
-rules, and batch-loop details CLAUDE.md and ARCHITECTURE.md still reference. At some point before
-slice 4, a write to the slice-status tracker (`PLAN.md`) silently overwrote that content — macOS's
-default filesystem (APFS) is case-insensitive, so `plan.md` and `PLAN.md` are the same file. There
-was no git history to recover it from (zero commits at the time, and still zero now). Slice 4 was
-implemented from what survived scattered across `ARCHITECTURE.md`, `docs/adr/`, `spec.md`, and the
-grill files. `PLAN.md`'s own header now carries a permanent warning about this, and neither file
-has been "fixed" (e.g. by renaming the tracker) — a decision purely of scope, not correctness.
+rules, and batch-loop details CLAUDE.md and `docs/architecture.md` still reference. At some point
+before slice 4, a write to the slice-status tracker (`PLAN.md`) silently overwrote that content —
+macOS's default filesystem (APFS) is case-insensitive, so `plan.md` and `PLAN.md` were the same
+file. There was no git history to recover it from (zero commits at the time, and still zero now).
+Slice 4 was implemented from what survived scattered across `docs/architecture.md`, `docs/adr/`,
+`docs/spec.md`, and the grill files. `PLAN.md`'s own header carried a permanent warning about this
+from that point on; the collision itself was later closed by the docs reorg, which moved the
+survivor to a single canonical path, `docs/plan.md`.
 
 ## 4. Slices 0-6: scaffold through the LLM layer
 
@@ -75,7 +76,7 @@ fallback, both behind `LLMProvider`).
 - **The collector's original selector-based parser matched zero posts on a real capture**
   (slice 3). LinkedIn had moved to a server-driven UI with fully hashed CSS classes and no
   `data-urn` on post containers — the training-data-informed selectors simply didn't exist
-  anymore. Rebuilt around ARIA roles/attributes instead (`docs/DECISIONS.md` §4).
+  anymore. Rebuilt around ARIA roles/attributes instead (`docs/decisions.md` §4).
 - **Post dedup by exact URN, as originally planned, had to fall back to hash-based dedup for most
   posts** — a direct consequence of the ARIA rebuild: there's no reliable container-level URN in
   the current markup, only an opportunistic one recoverable from a nested comment.
@@ -105,7 +106,7 @@ and was caught by the same pattern of test.
 
 Built with shadcn/ui's _current_ CLI output rather than an older-style setup remembered from
 training data — the CLI now targets Base UI, not Radix, and a different theming convention
-entirely (`docs/DECISIONS.md` §5). The first `pnpm build` after the digest pages existed caught a
+entirely (`docs/decisions.md` §5). The first `pnpm build` after the digest pages existed caught a
 real bug: `/` and `/digests` were silently prerendered as static HTML at build time, frozen
 forever, because nothing told Next.js they read live, request-time database state.
 
@@ -130,7 +131,7 @@ validation on read), and the settings forms wrote unvalidated `FormData` straigh
 With all 12 slices done, the actual bake-off ran — not the originally-planned hand-labeled
 precision/recall path, but a faster one: dump both classifiers' real output over 101 already-
 collected posts and have an external LLM judge the comparison directly. The verdict
-(`bake-off-verdict.md`): gemma4 clearly more accurate on category, badly miscalibrated on its own
+(`docs/bake-off-verdict.md`): gemma4 clearly more accurate on category, badly miscalibrated on its own
 relevance number. Implemented as `classification.active: 'gemma4'` plus a deterministic
 relevance formula over gemma4's own category scores, replacing the LLM-generated relevance number
 entirely rather than trying to prompt it into better calibration.
@@ -140,5 +141,5 @@ retry-storming — 10+ failed `scheduled` runs in under an hour, all failing in 
 stale Chrome profile lock. The proximate cause (a leftover lock file from an earlier unclean
 exit) was trivial to clear by hand; the real bug underneath it — `stopConditions.maxRunsPerDay`,
 declared in config since slice 0 as an explicit anti-hammering measure, never actually enforced
-anywhere — was the more consequential find, and the fix (`docs/DECISIONS.md` §10) is what
+anywhere — was the more consequential find, and the fix (`docs/decisions.md` §10) is what
 prevents the next unrelated failure from doing the same thing.
