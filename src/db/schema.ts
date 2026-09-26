@@ -140,6 +140,9 @@ export const digestSections = sqliteTable(
 
 // ── topic_clusters / topic_cluster_posts ────────────────────────────────
 
+export const insightLevels = ['low', 'medium', 'high'] as const;
+export type InsightLevel = (typeof insightLevels)[number];
+
 export const topicClusters = sqliteTable(
   'topic_clusters',
   {
@@ -148,11 +151,18 @@ export const topicClusters = sqliteTable(
       .notNull()
       .references(() => digests.id, { onDelete: 'cascade' }),
     category: text('category').notNull(),
+    /** The insight's title (a concrete claim, not a category name). Empty = not an insight (spec-second.md). */
     title: text('title').notNull(),
-    summary: text('summary', { mode: 'json' }).notNull().$type<{
-      bullets: { text: string; sources: number[] }[];
-    }>(),
+    /** The synthesized claim/idea itself — a paragraph, not per-bullet inline citations (sources come from topic_cluster_posts). */
+    summary: text('summary').notNull().default(''),
+    whyItMatters: text('why_it_matters'),
+    suggestedAction: text('suggested_action'),
+    noveltyLevel: text('novelty_level', { enum: insightLevels }),
+    confidence: text('confidence', { enum: insightLevels }),
+    /** Cluster cohesion (0..1), unrelated to `rank` below. */
     score: real('score').notNull(),
+    /** Final 1..N position in the ranked briefing; null = not an insight, or an insight cut for length. */
+    rank: integer('rank'),
   },
   (t) => [index('topic_clusters_digest_id_idx').on(t.digestId)],
 );

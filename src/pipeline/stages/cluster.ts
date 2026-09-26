@@ -11,9 +11,9 @@ import { MAX_SOURCES_PER_TOPIC } from './digestLimits';
  * so this runs once over the whole current batch rather than in the usual 25-at-a-time loop:
  * cluster membership is a collective decision, not a per-post one), and creates the digest's
  * `topicClusters`/`topicClusterPosts` rows. Every clustered post advances to `clustered`
- * regardless of whether its cluster ends up featured — the `summarize` stage caps which
- * clusters actually get an LLM-written title/bullets (grill A3: at most 5 topics per section),
- * but posts in the rest aren't stuck; they're just not named in this digest's UI.
+ * regardless of whether its cluster ends up featured — `summarize` judges which clusters are
+ * real insights and `digest` ranks those across every category, but posts in the rest aren't
+ * stuck; they're just not named in this digest's briefing.
  */
 export async function runClusterStage(
   ctx: StageContext,
@@ -69,7 +69,7 @@ export async function runClusterStage(
           digestId,
           category,
           title: '',
-          summary: { bullets: [] },
+          summary: '',
           score: cluster.cohesion,
         });
 

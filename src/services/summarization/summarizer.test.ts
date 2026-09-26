@@ -20,61 +20,63 @@ function posts(n: number): SourcePost[] {
   }));
 }
 
-describe('createSummarizer.summarizeCluster', () => {
-  it('returns a valid summary on the first attempt', async () => {
-    const generateObject = vi.fn().mockResolvedValue({
-      title: 'Distributed systems',
-      bullets: [{ text: 'Teams are scaling queues [1][2].', sources: [1, 2] }],
-    });
+const validInsight = {
+  isInsight: true,
+  title: 'One coordinating agent may reduce multi-agent cognitive overhead',
+  summary: 'Delegating bounded work to sub-agents through one coordinator simplifies review.',
+  whyItMatters: 'Relevant to agentic IDE and multi-agent workflows.',
+  suggestedAction: 'Try this workflow',
+  noveltyLevel: 'high' as const,
+  confidence: 'medium' as const,
+};
+
+describe('createSummarizer.evaluateCluster', () => {
+  it('returns a valid insight on the first attempt', async () => {
+    const generateObject = vi.fn().mockResolvedValue(validInsight);
     const summarizer = createSummarizer({ llm: fakeLlm(generateObject) });
 
-    const result = await summarizer.summarizeCluster('Software Engineering', posts(2));
+    const result = await summarizer.evaluateCluster('AI / ML', posts(3));
 
-    expect(result.title).toBe('Distributed systems');
+    expect(result).toEqual({ ...validInsight });
     expect(generateObject).toHaveBeenCalledTimes(1);
   });
 
-  it('retries once when a bullet cites a source number that was not given, then succeeds', async () => {
-    const generateObject = vi
-      .fn()
-      .mockResolvedValueOnce({
-        title: 'Bad',
-        bullets: [{ text: 'Invented source [5].', sources: [5] }],
-      })
-      .mockResolvedValueOnce({
-        title: 'Good',
-        bullets: [{ text: 'Real source [1].', sources: [1] }],
-      });
-    const summarizer = createSummarizer({ llm: fakeLlm(generateObject), maxRetries: 2 });
-
-    const result = await summarizer.summarizeCluster('Career', posts(1));
-
-    expect(result.title).toBe('Good');
-    expect(generateObject).toHaveBeenCalledTimes(2);
-  });
-
-  it('throws after exhausting retries on a persistently invalid citation', async () => {
+  it('trusts isInsight: false and does not require the other fields', async () => {
     const generateObject = vi.fn().mockResolvedValue({
-      title: 'Bad',
-      bullets: [{ text: 'Invented source [9].', sources: [9] }],
+      isInsight: false,
+      title: '',
+      summary: '',
+      whyItMatters: '',
+      suggestedAction: null,
+      noveltyLevel: 'low',
+      confidence: 'low',
     });
-    const summarizer = createSummarizer({ llm: fakeLlm(generateObject), maxRetries: 2 });
-
-    await expect(summarizer.summarizeCluster('Career', posts(1))).rejects.toThrow(
-      /cites source \[9\]/,
-    );
-    expect(generateObject).toHaveBeenCalledTimes(2);
-  });
-});
-
-describe('createSummarizer.summarizeSection', () => {
-  it('returns the tldr text', async () => {
-    const generateObject = vi.fn().mockResolvedValue({ tldr: 'A short summary.' });
     const summarizer = createSummarizer({ llm: fakeLlm(generateObject) });
 
-    const tldr = await summarizer.summarizeSection('AI / ML', ['Topic A', 'Topic B']);
+    const result = await summarizer.evaluateCluster('Career', posts(1));
 
-    expect(tldr).toBe('A short summary.');
+    expect(result).toEqual({ isInsight: false });
+  });
+
+  it('retries once when isInsight is true but the title is empty, then succeeds', async () => {
+    const generateObject = vi
+      .fn()
+      .mockResolvedValueOnce({ ...validInsight, title: '' })
+      .mockResolvedValueOnce(validInsight);
+    const summarizer = createSummarizer({ llm: fakeLlm(generateObject), maxRetries: 2 });
+
+    const result = await summarizer.evaluateCluster('AI / ML', posts(2));
+
+    expect(result).toEqual({ ...validInsight });
+    expect(generateObject).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws after exhausting retries on a persistently empty summary', async () => {
+    const generateObject = vi.fn().mockResolvedValue({ ...validInsight, summary: '   ' });
+    const summarizer = createSummarizer({ llm: fakeLlm(generateObject), maxRetries: 2 });
+
+    await expect(summarizer.evaluateCluster('Career', posts(1))).rejects.toThrow(/empty summary/);
+    expect(generateObject).toHaveBeenCalledTimes(2);
   });
 });
 

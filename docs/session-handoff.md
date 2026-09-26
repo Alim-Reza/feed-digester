@@ -2,20 +2,38 @@
 
 For picking this project back up — a fresh LLM coding session or a human. Written 2026-09-25,
 end of the session that implemented slices 7-12, ran the ADR 0003 classifier bake-off, and fixed
-a scheduler bug found live. Read `docs/project-memory.md` first for the architecture; this doc is
-state and next steps, not a tutorial.
+a scheduler bug found live; updated 2026-09-26 for the spec-second.md insight-briefing redesign
+(`docs/decisions.md` §11-12). Read `docs/project-memory.md` first for the architecture; this doc
+is state and next steps, not a tutorial.
+
+**If you're picking up the UI redesign (`docs/spec-third.md`)**: read
+`docs/ui-redesign-handoff.md` instead of starting from this doc — it's a dedicated, detailed
+handoff for exactly that task (reference screenshots, scope decisions already clarified with the
+user, current-architecture inventory, a sampled color palette, and a suggested plan), written so a
+fresh session doesn't have to re-derive any of it.
 
 ## Current state
 
-- All 12 slices from `docs/plan.md` §6 are done. `pnpm lint && pnpm test &&
-pnpm build` pass — 272 tests across 42 files.
+- All 12 slices from `docs/plan.md` §6 are done, plus the spec-second.md insight-briefing
+  redesign (`docs/decisions.md` §11) and a scheduler day-boundary fix (§12). `pnpm lint && pnpm
+  test && pnpm build` pass — 293 tests across 44 files.
 - ADR 0003 is **decided**: `classification.active: 'gemma4'` in `digest.config.ts`, with
   relevance computed from category scores (`relevanceWeights`) instead of trusting gemma4's own
   relevance number. See `docs/adr/0003-classifier-bake-off.md` and `docs/decisions.md` §9.
+- **The digest is now a ranked insight briefing, not category summaries** (`docs/decisions.md`
+  §11): `summarize` judges every topic cluster for a concrete, novel claim instead of writing
+  generic prose about it, and `digest` ranks surviving insights deterministically across every
+  category (`services/ranking/rankInsights.ts`), capped at `briefing.maxInsights`. A structured
+  `profile` config block (interests/goals/alreadyFamiliarWith) and `filtering.lowValuePhrases`
+  (engagement-bait/generic-motivation filtering) are both new and both deliberately reactivate
+  previously-deferred V0 scope cuts — see §11's "what was challenged" list before changing either
+  further.
 - `ollama pull embeddinggemma` is done (needed for the `cluster` stage's embeddings).
 - `pnpm login` has been run once; the `main` Chrome profile is logged in.
 - A scheduler bug (unbounded retry on a failing scheduled run) was found live and fixed —
-  `docs/decisions.md` §10.
+  `docs/decisions.md` §10. A second, unrelated scheduler bug (`runs.start()` ignoring the
+  injected `now`, only visible once the real calendar caught up to a test's hardcoded date) was
+  found and fixed while working on the redesign above — `docs/decisions.md` §12.
 - There is **no git history** — zero commits, by deliberate choice (grill K1/K2: "don't bother
   with git now"). If this project gets a git repo, this is a natural point to make the first
   commit; there's a full, working tree to commit as-is.
@@ -47,9 +65,10 @@ compare:classifiers` (no ground truth needed) or `pnpm evaluate:classifiers` (ne
   (`runBatchLoop` for synchronous stages; the async-work-outside-transaction-then-commit pattern
   in `ocr.ts`/`classify.ts`/`extractJobs.ts` for stages that call an LLM/OCR/embedder). This is
   the entire idempotency mechanism — breaking it breaks crash-resume.
-- **LLM-generated content with citations must be validated, never trusted.** Any bullet with
-  `sources` must be checked against the sources actually given before being written to the DB
-  (`summarizer.ts`, `gemmaClassifier.ts`, `extractor.ts` all do this with a local retry loop).
+- **LLM-generated content must be validated, never trusted.** `gemmaClassifier.ts`/
+  `extractor.ts` check every returned index against the batch actually sent; `summarizer.ts`
+  checks that a claimed insight actually has a non-empty title/summary/whyItMatters. All three
+  reject-and-retry (bounded) rather than writing unvalidated output to the DB.
 - **Settings overrides are read once per process, not live.** Don't add a "live reload" shortcut
   without also deciding whether an in-flight run should pick up a config change mid-stage —
   right now, deliberately, it never does.
@@ -60,16 +79,18 @@ compare:classifiers` (no ground truth needed) or `pnpm evaluate:classifiers` (ne
 ## Known issues (see `docs/project-memory.md`'s "Known limitations" for the full verified list)
 
 1. ADR 0002 claims exponential backoff on retry; no backoff exists in code.
-2. `relevanceProfile` in config is dead — nothing reads it.
-3. `evaluate-classifiers.ts` (the labeled-eval path) is untested against real labels — nobody has
+2. `evaluate-classifiers.ts` (the labeled-eval path) is untested against real labels — nobody has
    used `/posts`'s labeling UI yet.
-4. Retention's default (14) doesn't match the grill decision's stated default (7) — unresolved,
+3. Retention's default (14) doesn't match the grill decision's stated default (7) — unresolved,
    not obviously a bug, just a discrepancy.
-5. Four empty scaffold directories under `src/services/` (`dedup`, `digest`, `filtering`,
+4. Four empty scaffold directories under `src/services/` (`dedup`, `digest`, `filtering`,
    `retention`) — harmless, but confusing if you go looking for logic that actually lives in
    `pipeline/stages/*.ts` or `posts.insertOrTouch` instead.
-6. `.env.example` references a nonexistent `src/llm/fallback.ts` (real file:
+5. `.env.example` references a nonexistent `src/llm/fallback.ts` (real file:
    `fallbackProvider.ts`).
+6. The `profile`/`briefing` config blocks (spec-second.md, `docs/decisions.md` §11) are new and
+   still at their defaults — `profile` is empty (no interests/goals/alreadyFamiliarWith filled
+   in) and nobody has tuned `briefing.weights` against a real digest yet.
 
 ## Next logical work
 
@@ -82,11 +103,12 @@ Roughly in order of what would matter most next:
 2. **Label ~150 posts in `/posts` and run `pnpm evaluate:classifiers`** to get the originally-
    planned precision/recall numbers, as a second, more rigorous opinion alongside the external-
    judge verdict already in hand.
-3. Decide `relevanceProfile`'s fate: wire it into Laya's relevance question (the original grill
-   D5 intent) or remove the dead field.
+3. **Fill in the new `profile` config block** (interests/goals/alreadyFamiliarWith) against a real
+   role and run a real digest to see whether the ranking bonus and insight-prompt context
+   actually change anything noticeable — nobody has done this yet, so it's unverified live.
 4. Pick something off `docs/improvements.md` — phone access, weekly roll-ups, job-market trends over
-   time, training on 👍/👎 feedback, and an Eve "chat with my digests" agent are all explicitly
-   scoped out of V0 and sitting there ready to pick up.
+   time, training on 👍/👎 feedback, cross-category idea merging, and an Eve "chat with my
+   digests" agent are all explicitly scoped out and sitting there ready to pick up.
 5. Consider whether retention's actual default (14) should change to match the grill decision
    (7), or whether the grill decision should just be treated as superseded.
 6. First git commit, if/when git history starts mattering.

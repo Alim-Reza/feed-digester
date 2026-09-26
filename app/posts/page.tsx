@@ -30,10 +30,11 @@ export default async function PostsPage({ searchParams }: PageProps<'/posts'>) {
   const posts = repos.posts.list({ status, q, limit: 100 });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-10">
       <div>
-        <h1 className="text-xl font-semibold">Posts</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs font-semibold tracking-widest text-accent-signal uppercase">Archive</p>
+        <h1 className="text-3xl font-bold tracking-tight">Posts</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Browse collected posts, including dropped ones (grill I3), and label ground truth for
           the classifier bake-off (grill E5/ADR 0003).
         </p>

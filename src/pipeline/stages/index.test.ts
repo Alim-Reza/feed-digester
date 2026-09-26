@@ -51,11 +51,16 @@ const fakeClusterStage: Stage = {
 };
 
 const fakeSummarizer: Summarizer = {
-  async summarizeCluster() {
-    return { title: 'Fake topic', bullets: [{ text: 'A fake bullet [1].', sources: [1] }] };
-  },
-  async summarizeSection() {
-    return 'A fake section TL;DR.';
+  async evaluateCluster() {
+    return {
+      isInsight: true,
+      title: 'Fake insight',
+      summary: 'A fake concrete summary.',
+      whyItMatters: 'Because it is a test.',
+      suggestedAction: null,
+      noveltyLevel: 'high',
+      confidence: 'high',
+    };
   },
   async release() {},
 };
@@ -64,9 +69,9 @@ const fakeSummarizeStage: Stage = {
   run: (ctx) => runSummarizeStage(ctx, () => fakeSummarizer),
 };
 
-function seedNewPost(repos: Repositories, runId: string) {
+function seedNewPost(repos: Repositories, runId: string, hash = 'h1') {
   return repos.posts.insertOrTouch({
-    hash: 'h1',
+    hash,
     authorName: 'Author',
     firstSeenRunId: runId,
     collectedAt: new Date(),
@@ -113,5 +118,44 @@ describe('stub stages', () => {
     expect(outcome).toBe('succeeded');
     expect(repos.posts.countByStatus('digested')).toBe(1);
     expect(repos.posts.countByStatus('new')).toBe(0);
+  });
+
+  // spec-second.md §13, fixture B: three posts expressing the same idea should become one
+  // synthesized insight with three sources, not three separate topics — the headline success
+  // criterion from §14 ("40 posts do not automatically become 40 things to read").
+  it('merges three posts about the same idea into one insight with three sources (fixture B)', async () => {
+    const db = createTestDb();
+    const repos = createRepositories(db);
+    const config = loadConfig();
+    const run = repos.runs.create('manual');
+    seedNewPost(repos, run.id, 'h1');
+    seedNewPost(repos, run.id, 'h2');
+    seedNewPost(repos, run.id, 'h3');
+
+    const identicalEmbeddingStage: Stage = {
+      name: 'cluster',
+      run: (ctx) =>
+        runClusterStage(ctx, () => ({
+          name: 'fake-embedder',
+          async embed(texts) {
+            return texts.map(() => [1, 0, 0]);
+          },
+          async release() {},
+        })),
+    };
+    const stages = stagesForCommand('process').map(
+      (s) => ({ ...fakeStagesByName, cluster: identicalEmbeddingStage })[s.name] ?? s,
+    );
+
+    const outcome = await runPipeline({ db, repos, config, logger }, run.id, stages);
+
+    expect(outcome).toBe('succeeded');
+    const digestRow = repos.digests.getByRunId(run.id)!;
+    const clusters = repos.topicClusters.listForDigest(digestRow.id);
+    expect(clusters).toHaveLength(1);
+    expect(clusters[0]!.rank).toBe(1);
+    const sources = repos.topicClusterPosts.listForCluster(clusters[0]!.id);
+    expect(sources).toHaveLength(3);
+    expect(digestRow.stats).toMatchObject({ duplicatesMerged: 2 });
   });
 });

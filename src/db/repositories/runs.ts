@@ -17,11 +17,8 @@ export function createRunsRepository(db: DbClient) {
       return db.select().from(runs).where(eq(runs.id, id)).get();
     },
 
-    start(id: string): void {
-      db.update(runs)
-        .set({ status: 'running', startedAt: new Date() })
-        .where(eq(runs.id, id))
-        .run();
+    start(id: string, startedAt: Date = new Date()): void {
+      db.update(runs).set({ status: 'running', startedAt }).where(eq(runs.id, id)).run();
     },
 
     setStage(id: string, stage: string): void {

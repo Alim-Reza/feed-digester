@@ -17,13 +17,14 @@ export async function runPipeline(
   deps: { db: DbClient; repos: Repositories; config: DigestConfig; logger: Logger },
   runId: string,
   stages: Stage[],
+  now: Date = new Date(),
 ): Promise<RunOutcome> {
   const { db, repos, config, logger } = deps;
   const run = repos.runs.get(runId);
   if (!run) throw new Error(`run ${runId} not found`);
 
   if (run.status === 'interrupted') repos.runs.resume(runId);
-  else repos.runs.start(runId);
+  else repos.runs.start(runId, now);
 
   const startIndex = run.currentStage ? stages.findIndex((s) => s.name === run.currentStage) : 0;
 

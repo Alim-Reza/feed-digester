@@ -1,4 +1,6 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 import { getWebContext } from '@/src/web/context';
 import { runEventLevelVariant, runStatusVariant } from '@/src/web/badges';
 import { Badge } from '@/components/ui/badge';
@@ -16,9 +18,16 @@ export default async function RunDetailPage({ params }: PageProps<'/operations/r
   const events = repos.runEvents.listForRun(id);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-10">
+      <Link
+        href="/operations"
+        className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="size-3.5" />
+        Back to operations
+      </Link>
       <div>
-        <h1 className="text-xl font-semibold">
+        <h1 className="text-2xl font-bold tracking-tight">
           Run <span className="font-mono text-base text-muted-foreground">{run.id}</span>
         </h1>
         <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">

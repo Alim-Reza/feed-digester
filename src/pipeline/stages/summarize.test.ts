@@ -6,6 +6,7 @@ import { loadConfig } from '../../config';
 import { newId } from '../../db/ids';
 import { runSummarizeStage } from './summarize';
 import type { Summarizer } from '../../services/summarization/summarizer';
+import type { InsightEvaluation } from '../../services/summarization/types';
 import type { StageContext } from '../types';
 
 const logger = pino({ level: 'silent' });
@@ -26,7 +27,7 @@ function seedDigestWithCluster(category: string, memberCount: number) {
   const now = new Date();
   repos.digests.insert({ id: digestId, runId: ctx.run.id, windowStart: now, windowEnd: now, createdAt: now, stats: {} });
   const clusterId = newId();
-  repos.topicClusters.insert({ id: clusterId, digestId, category, title: '', summary: { bullets: [] }, score: 1 });
+  repos.topicClusters.insert({ id: clusterId, digestId, category, title: '', summary: '', score: 1 });
   for (let i = 0; i < memberCount; i += 1) {
     const { post } = repos.posts.insertOrTouch({
       hash: `${clusterId}-${i}`,
@@ -41,12 +42,19 @@ function seedDigestWithCluster(category: string, memberCount: number) {
   return { digestId, clusterId };
 }
 
+const validInsight: InsightEvaluation = {
+  isInsight: true,
+  title: 'A concrete insight',
+  summary: 'A concrete summary.',
+  whyItMatters: 'Because it matters.',
+  suggestedAction: null,
+  noveltyLevel: 'high',
+  confidence: 'medium',
+};
+
 function fakeSummarizer(overrides: Partial<Summarizer> = {}): Summarizer {
   return {
-    summarizeCluster: vi
-      .fn()
-      .mockResolvedValue({ title: 'A topic', bullets: [{ text: 'A bullet [1].', sources: [1] }] }),
-    summarizeSection: vi.fn().mockResolvedValue('A section tldr.'),
+    evaluateCluster: vi.fn().mockResolvedValue(validInsight),
     release: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -58,31 +66,60 @@ describe('runSummarizeStage', () => {
     expect(repos.digestSections.listForDigest('nonexistent')).toEqual([]);
   });
 
-  it('writes a cluster title/bullets and a digest section with the summarized topic titles', async () => {
+  it('writes an insight onto a cluster judged worth keeping', async () => {
     const { digestId, clusterId } = seedDigestWithCluster('software_engineering', 2);
     const summarizer = fakeSummarizer();
 
     await runSummarizeStage(ctx, () => summarizer);
 
     const clusters = repos.topicClusters.listForDigest(digestId);
-    expect(clusters.find((c) => c.id === clusterId)!.title).toBe('A topic');
-    const sections = repos.digestSections.listForDigest(digestId);
-    expect(sections).toHaveLength(1);
-    expect(sections[0]!).toMatchObject({ category: 'software_engineering', tldr: 'A section tldr.', postCount: 2 });
+    const cluster = clusters.find((c) => c.id === clusterId)!;
+    expect(cluster).toMatchObject({
+      title: validInsight.title,
+      summary: validInsight.summary,
+      whyItMatters: validInsight.whyItMatters,
+      noveltyLevel: 'high',
+      confidence: 'medium',
+    });
   });
 
-  it('falls back to a deterministic tldr and leaves the cluster unfeatured when the LLM call fails', async () => {
+  it('leaves a cluster judged not-an-insight untouched (empty title)', async () => {
     const { digestId, clusterId } = seedDigestWithCluster('career', 1);
     const summarizer = fakeSummarizer({
-      summarizeCluster: vi.fn().mockRejectedValue(new Error('ollama unreachable')),
+      evaluateCluster: vi.fn().mockResolvedValue({ isInsight: false }),
     });
 
     await runSummarizeStage(ctx, () => summarizer);
 
     const clusters = repos.topicClusters.listForDigest(digestId);
     expect(clusters.find((c) => c.id === clusterId)!.title).toBe('');
-    const sections = repos.digestSections.listForDigest(digestId);
-    expect(sections[0]!.tldr).toMatch(/1 Career Advice post this cycle\./);
+  });
+
+  it('leaves the cluster unfeatured when the LLM call fails, without failing the run', async () => {
+    const { digestId, clusterId } = seedDigestWithCluster('career', 1);
+    const summarizer = fakeSummarizer({
+      evaluateCluster: vi.fn().mockRejectedValue(new Error('ollama unreachable')),
+    });
+
+    await runSummarizeStage(ctx, () => summarizer);
+
+    const clusters = repos.topicClusters.listForDigest(digestId);
+    expect(clusters.find((c) => c.id === clusterId)!.title).toBe('');
+  });
+
+  it('passes the configured personalization profile through to the evaluator', async () => {
+    seedDigestWithCluster('ai_ml', 1);
+    const evaluateCluster = vi.fn().mockResolvedValue(validInsight);
+    const config = { ...ctx.config, profile: { interests: ['agents'], goals: [], alreadyFamiliarWith: [] } };
+    ctx = { ...ctx, config };
+
+    await runSummarizeStage(ctx, () => fakeSummarizer({ evaluateCluster }));
+
+    expect(evaluateCluster).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      config.profile,
+    );
   });
 
   it('releases the summarizer exactly once', async () => {

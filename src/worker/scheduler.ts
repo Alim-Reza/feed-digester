@@ -32,6 +32,12 @@ function isPastDailyAt(now: Date, dailyAt: string): boolean {
  *
  * `stages` defaults to the real `allStages` (including live collection) but can be overridden
  * in tests, so exercising the scheduling logic here never launches a real browser.
+ *
+ * `now` is threaded all the way into `runPipeline`/`runs.start` rather than letting the run pick
+ * up its own `new Date()` for `startedAt` — otherwise every day-boundary check above
+ * (`succeededSince`/`countStartedSince`, both keyed on `startedAt`) is deterministic on the
+ * injected `now` while the run's own `startedAt` silently uses the real wall clock instead,
+ * which only breaks visibly once a test's simulated "next day" collides with the real one.
  */
 export async function checkSchedule(
   deps: { db: DbClient; repos: Repositories; config: DigestConfig; logger: Logger },
@@ -55,5 +61,5 @@ export async function checkSchedule(
 
   const run = repos.runs.create('scheduled');
   logger.info({ runId: run.id, attemptsToday: attemptsToday + 1 }, 'scheduler starting daily run');
-  await runPipeline(deps, run.id, stages);
+  await runPipeline(deps, run.id, stages, now);
 }

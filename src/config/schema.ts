@@ -29,6 +29,13 @@ const thresholdsSchema = z.object({
 const filteringSchema = z.object({
   /** Phrases that mark a "humblebrag" celebration post to drop. Case-insensitive substring match. */
   celebrationPhrases: z.array(z.string()),
+  /**
+   * Phrases that mark generic motivational filler / engagement bait to drop before it ever
+   * reaches classification (spec-second.md §2, reactivating grill D7's deferred "engagement-bait
+   * filter" on purpose — see docs/decisions.md). Same cheap substring-match mechanism as
+   * `celebrationPhrases`, just a different drop reason.
+   */
+  lowValuePhrases: z.array(z.string()),
   /** Author names or handles to always keep, skipping every other rule. */
   allowlist: z.array(z.string()),
   /** Author names, handles, or domains to always drop. */
@@ -112,6 +119,40 @@ const jobsSchema = z.object({
   skillAliases: z.record(z.string(), z.string()),
 });
 
+/**
+ * spec-second.md §6: reactivating grill part-2/3 Q3's deliberately-deferred "personal relevance
+ * profile" (the old `relevanceProfile` free-text field was scaffolded for exactly this and never
+ * wired to anything — see docs/decisions.md). All three lists are free text, matched as
+ * case-insensitive substrings against insight titles/summaries — no embeddings, no extra LLM
+ * call, per CLAUDE.md's "no overengineering" ground rule. Empty by default: an empty profile
+ * changes nothing, matching the pre-existing "general judgement, no profile" behavior.
+ */
+const personalProfileSchema = z.object({
+  interests: z.array(z.string()),
+  goals: z.array(z.string()),
+  alreadyFamiliarWith: z.array(z.string()),
+});
+
+/**
+ * Deterministic ranking weights for the finite briefing (spec-second.md §7). Deliberately NOT an
+ * LLM-scored "usefulness" number — ADR 0003 already found that an LLM asked to self-report an
+ * open relevance score is badly miscalibrated (65/101 posts scored >=0.8). Every weighted input
+ * here is either already-deterministic (cohesion, source count, category weight) or a categorical
+ * LLM judgment (novelty), never a raw LLM float. Weights are normalized by their sum in
+ * `rankInsights`, so they don't need to add up to exactly 1.
+ */
+const briefingSchema = z.object({
+  /** Top-N insights that make the final briefing (spec-second.md §7: "approximately 5-10"). */
+  maxInsights: z.number().int().positive(),
+  weights: z.object({
+    cohesion: z.number().min(0),
+    sourceCount: z.number().min(0),
+    novelty: z.number().min(0),
+    categoryRelevance: z.number().min(0),
+    profileMatch: z.number().min(0),
+  }),
+});
+
 export const digestConfigSchema = z.object({
   categories: z.array(categoryConfigSchema).min(1),
   thresholds: thresholdsSchema,
@@ -125,8 +166,8 @@ export const digestConfigSchema = z.object({
   profiles: profileSchema,
   classification: classificationSchema,
   jobs: jobsSchema,
-  /** Optional free-text "what I care about" appended to the relevance question. */
-  relevanceProfile: z.string().optional(),
+  profile: personalProfileSchema,
+  briefing: briefingSchema,
   dataDir: z.string(),
 });
 

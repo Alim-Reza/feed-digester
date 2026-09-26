@@ -15,6 +15,13 @@
       "when": 1790288217330,
       "tag": "0001_narrow_drax",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790409302137,
+      "tag": "0002_marvelous_black_tarantula",
+      "breakpoints": true
     }
   ]
 }

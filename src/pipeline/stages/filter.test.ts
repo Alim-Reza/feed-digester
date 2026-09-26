@@ -61,6 +61,14 @@ describe('decideFilter', () => {
     expect(outcome).toMatchObject({ keep: false, reason: 'celebration' });
   });
 
+  it('drops generic motivational filler (spec-second.md §2)', () => {
+    const outcome = decideFilter(
+      basePost({ content: 'Never give up on your dreams. Keep learning every single day.' }),
+      filtering,
+    );
+    expect(outcome).toMatchObject({ keep: false, reason: 'low_value_phrase' });
+  });
+
   it('keeps a celebration-shaped post that is actually substantive (only the exact phrase triggers it)', () => {
     const outcome = decideFilter(
       basePost({

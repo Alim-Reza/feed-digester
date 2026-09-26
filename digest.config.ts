@@ -53,6 +53,23 @@ const digestConfig: DigestConfig = {
       'proud to share',
       'grateful to announce',
     ],
+    // Generic motivational filler / engagement bait (spec-second.md §2, grill D7 reactivated —
+    // see docs/decisions.md). Deliberately generic enough to catch the "keep learning, believe in
+    // yourself" style post regardless of topic; a post can still survive via the allowlist above.
+    lowValuePhrases: [
+      'keep learning',
+      'never stop learning',
+      'believe in yourself',
+      'consistency is key',
+      'hard work pays off',
+      'never give up',
+      'the only limit is you',
+      'invest in yourself',
+      'trust the process',
+      'small steps every day',
+      'comfort zone',
+      'mindset is everything',
+    ],
     allowlist: [],
     blocklist: [],
     allowedLanguages: ['en', 'bn'],
@@ -147,7 +164,28 @@ const digestConfig: DigestConfig = {
     names: ['main', 'collector'],
   },
 
-  relevanceProfile: undefined,
+  // spec-second.md §6: empty by default (grill part 2/3 Q3's "no profile, general judgement"
+  // stays the behavior until someone fills this in) — cashes in the old dead `relevanceProfile`
+  // field's intent (docs/decisions.md §11) with a structured shape instead of free text.
+  profile: {
+    interests: [],
+    goals: [],
+    alreadyFamiliarWith: [],
+  },
+
+  // spec-second.md §7: deterministic ranking, not an LLM-scored "usefulness" float (ADR 0003).
+  // Novelty leads since it's the dimension the old category-summary design entirely lacked;
+  // categoryRelevance/profileMatch are secondary tie-breakers, not primary gates.
+  briefing: {
+    maxInsights: 8,
+    weights: {
+      cohesion: 0.2,
+      sourceCount: 0.2,
+      novelty: 0.35,
+      categoryRelevance: 0.15,
+      profileMatch: 0.1,
+    },
+  },
 
   dataDir: 'data',
 };

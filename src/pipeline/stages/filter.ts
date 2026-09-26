@@ -43,6 +43,9 @@ export function decideFilter(post: FilterInput, config: DigestConfig['filtering'
   if (matchesAny(post.content, config.celebrationPhrases)) {
     return { keep: false, reason: 'celebration', language };
   }
+  if (matchesAny(post.content, config.lowValuePhrases)) {
+    return { keep: false, reason: 'low_value_phrase', language };
+  }
   if (post.contentType === 'video' && post.content.length < config.minVideoTextLength) {
     return { keep: false, reason: 'video_low_text', language };
   }

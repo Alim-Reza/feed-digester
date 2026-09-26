@@ -1,18 +1,22 @@
 # Project Memory
 
 Final mental model of `feed-digester`, verified against the actual code and tests as they stand
-today (2026-09-25, end of slice 12 + the post-launch scheduler fix + the ADR 0003 bake-off).
-This is the doc to read first; `docs/decisions.md` has the why behind each call,
-`docs/build-journal.md` has the how-we-got-here narrative, `docs/session-handoff.md` is for
-picking the work back up.
+today (2026-09-26, end of slice 12 + the post-launch scheduler fix + the ADR 0003 bake-off +
+the spec-second.md insight-briefing redesign — see `docs/decisions.md` §11-12). This is the doc
+to read first; `docs/decisions.md` has the why behind each call, `docs/build-journal.md` has the
+how-we-got-here narrative, `docs/session-handoff.md` is for picking the work back up.
 
 ## What it is
 
 A local-first tool that logs into your own LinkedIn account, scrolls your feed like a human,
-filters and classifies what it sees, clusters related posts into topics, summarizes each topic
-with an LLM, and produces a short, finite daily digest — instead of you doom-scrolling. It also
-extracts structured job-posting data (company/role/skills/seniority) into a "Job Market"
-section. Everything runs on one Mac; nothing about the design assumes a server.
+filters what it sees, clusters related posts into topic candidates, and evaluates each cluster
+for a concrete, specific insight worth adding to the reader's mental model — discarding generic
+motivational filler and low-novelty content rather than summarizing everything. The result is a
+short, ranked, cross-category briefing (~5-10 insights, each with a synthesized claim, why it
+matters, and its traceable source posts) instead of you doom-scrolling. It also extracts
+structured job-posting data (company/role/skills/seniority, URL/author, and an optional
+profile-matched "why relevant") into a "Job Market" section. Everything runs on one Mac; nothing
+about the design assumes a server.
 
 ## The two-process architecture
 
@@ -69,12 +73,20 @@ any row still `running` on startup, marks it `interrupted`, and `runPipeline` re
   category, and runs a small pure greedy single-pass clustering algorithm
   (`src/services/clustering/cluster.ts`) — no k-means, no persisted cluster identity across
   digests. Creates the digest's `topicClusters`/`topicClusterPosts` rows.
-- **`summarize`**: for the top 5 clusters per category (by member count), asks the LLM for a
-  title + 2-4 bullets, each bullet citing source-post numbers (`[1][2]`) that are validated
-  against the sources actually given — an invalid citation is rejected and retried, never
-  trusted. Also writes each section's 2-3 sentence TL;DR.
-- **`digest`**: advances every clustered post (featured or not) to `digested`, and writes the
-  digest's final `stats`, including the spec's Job Market aggregates.
+- **`summarize`** (redesigned per spec-second.md, `docs/decisions.md` §11): evaluates *every*
+  topic cluster, not just a per-category top 5. Asks the LLM to decide whether the cluster is
+  actually a concrete, novel insight worth keeping (`isInsight`) — generic/motivational/repeated
+  content gets no title at all, on purpose. A real insight gets a synthesized title, a claim
+  summary, a `whyItMatters`, an optional `suggestedAction`, and categorical `noveltyLevel`/
+  `confidence` (never a raw self-reported float — see below). No per-category LLM TL;DR anymore;
+  sources are never self-cited by the LLM — a cluster's `topicClusterPosts` membership (already
+  deterministic) is its full source list.
+- **`digest`**: ranks every surviving insight **across all categories** deterministically
+  (`src/services/ranking/rankInsights.ts` — cohesion, source count, categorical novelty, the
+  reader's per-category weight, and an optional profile-keyword match; category is metadata, not
+  a grouping unit), assigns the top `briefing.maxInsights` a `rank`, advances every clustered post
+  to `digested`, and writes the finite-briefing stats (posts scanned/useful/filtered-as-noise/
+  merged, estimated reading minutes) plus the Job Market aggregates.
 - **`retention`**: purges post text, OCR text, and images older than `retention.keepCompletedRuns`
   completed cycles — keeps URL, author, categories/scores, job rows, and digest summaries, so old
   digests' citations still resolve.
@@ -121,9 +133,14 @@ Ollama call, no real OCR model load) — every stage test injects a fake through
 ## The UI (`app/`, `components/ui/` via shadcn/Base UI)
 
 - `/` redirects to the latest digest, or shows an empty state.
-- `/digests`, `/digests/[id]` — browse past digests; each section shows its TL;DR, featured
-  topics (title, cited bullets, numbered source list linking to the original post), and a Job
-  Market breakdown when the digest has job openings.
+- `/digests`, `/digests/[id]` — browse past digests; a briefing-metadata line (posts scanned/
+  useful/filtered-as-noise/merged, estimated reading time), each category's ranked insight cards
+  (synthesized claim, why it matters, optional suggested action, source list linking to the
+  original posts — no `[1][2]`-style inline citations), and a Job Market breakdown (aggregate
+  tables plus individual openings with links) when the digest has job openings. The underlying
+  data is now a cross-category ranked list (`topicClusters.rank`); the page still groups the
+  cards by category visually — a full UI rework to a flat ranked layout is deferred, per
+  spec-second.md's explicit "do not start by changing the UI."
 - `/operations` — trigger buttons for each `run_commands` type, a recent-runs list linking to
   `/operations/runs/[id]` for the full event log, and three settings forms (thresholds, active
   classifier, filter lists).
@@ -142,11 +159,10 @@ frozen as static HTML).
   any backoff.** `posts.recordAttemptFailure` just increments `attempts` and marks the post
   `failed` at 3 — retries happen whenever the post's stage is next entered (the next scheduled or
   manual run), with no explicit delay calculation anywhere in the source.
-- **`relevanceProfile` in `digest.config.ts` is dead.** It was meant to be passed into the
-  relevance question (grill D5: "That should be passed to jev/layla"), but neither
-  `layaClassifier.ts` nor `gemmaClassifier.ts` ever reads it — gemma4 now computes relevance from
-  `relevanceWeights` instead (ADR 0003), and Laya's relevance `score` question never used it
-  either, in any slice.
+- **The old dead `relevanceProfile` field is gone**, replaced by a structured `profile: {
+  interests, goals, alreadyFamiliarWith }` config block (`docs/decisions.md` §11) — threaded into
+  the `summarize` insight prompt and into `rankInsights`'s profile-match bonus. Empty by default,
+  same as before; still nobody's filled it in yet.
 - **The classifier bake-off didn't use the labeled-eval path the ADR originally described.**
   `evaluate-classifiers.ts` (precision/recall/F1 against `feedback` rows of kind `label`) exists
   and is tested, but no one has actually labeled posts in `/posts` yet. The real decision came

@@ -73,6 +73,83 @@ describe('createJobExtractor', () => {
     expect(generateObject).toHaveBeenCalledTimes(2);
   });
 
+  it('fixture E (spec-second.md §13): a job posting produces structured extraction, not prose', async () => {
+    const generateObject = vi.fn().mockResolvedValue({
+      results: [
+        {
+          index: 0,
+          isHiringPost: true,
+          roles: [
+            {
+              company: 'Acme',
+              role: 'Staff Backend Engineer',
+              location: 'Berlin',
+              remoteStatus: 'hybrid',
+              seniority: 'staff',
+              experience: '8+ years',
+              skills: ['Go', 'Kubernetes'],
+            },
+          ],
+        },
+      ],
+    });
+    const extractor = createJobExtractor({ llm: fakeLlm(generateObject), skillAliases: {} });
+
+    const [result] = await extractor.extractBatch([
+      input('Acme is hiring a Staff Backend Engineer in Berlin (hybrid), 8+ years, Go/Kubernetes.'),
+    ]);
+
+    expect(result).toEqual({
+      isHiringPost: true,
+      roles: [
+        {
+          company: 'Acme',
+          role: 'Staff Backend Engineer',
+          location: 'Berlin',
+          remoteStatus: 'hybrid',
+          seniority: 'staff',
+          experience: '8+ years',
+          skills: ['Go', 'Kubernetes'],
+        },
+      ],
+    });
+  });
+
+  it('fixture F (spec-second.md §13): missing job fields stay null, never invented', async () => {
+    const generateObject = vi.fn().mockResolvedValue({
+      results: [
+        {
+          index: 0,
+          isHiringPost: true,
+          roles: [
+            {
+              company: null,
+              role: 'Software Engineer',
+              location: null,
+              remoteStatus: null,
+              seniority: null,
+              experience: null,
+              skills: [],
+            },
+          ],
+        },
+      ],
+    });
+    const extractor = createJobExtractor({ llm: fakeLlm(generateObject), skillAliases: {} });
+
+    const [result] = await extractor.extractBatch([input('We are hiring a Software Engineer.')]);
+
+    expect(result!.roles[0]).toEqual({
+      company: null,
+      role: 'Software Engineer',
+      location: null,
+      remoteStatus: null,
+      seniority: null,
+      experience: null,
+      skills: [],
+    });
+  });
+
   it('release() delegates to the underlying LLM provider', async () => {
     const llm = fakeLlm(vi.fn());
     const extractor = createJobExtractor({ llm, skillAliases: {} });

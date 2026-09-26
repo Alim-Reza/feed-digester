@@ -220,3 +220,97 @@ startOfLocalDay)` against `maxRunsPerDay` before starting another attempt; once 
 for the day, it waits for tomorrow regardless of how many attempts failed.
 
 **Where.** `src/worker/scheduler.ts`, `src/db/repositories/runs.ts`.
+
+## 11. Insight-briefing redesign (spec-second.md): ranked insights, not category summaries
+
+**Problem.** The shipped digest technically worked but read like generic category summaries
+("Mastering software engineering requires a structured approach...") instead of specific, useful
+claims. `docs/spec-second.md` asked for a pivot: `classify → group by category → summarize
+category` should become `→ relevance → noise removal → dedup/cluster → evaluate novelty/
+usefulness → extract insights → rank → finite personal briefing`, while explicitly warning
+against blindly implementing its own proposed scoring formula and against touching the UI yet.
+
+**Root cause, traced before changing anything.** Two prompts in the old
+`services/summarization/summarizer.ts` — a per-cluster prompt asking only "what this topic is and
+why it matters," and a per-category prompt that then re-summarized those already-generic titles
+one level more abstractly. Neither ever asked for a concrete claim or permission to say "there's
+no insight here." Clustering itself (`services/clustering/cluster.ts`, embedding-based,
+per-category) already did what spec-second.md's "cluster ideas, not just categories" asked for —
+the gap was entirely in the prompt and in the complete absence of any cross-category ranking.
+
+**What was challenged, not blindly implemented (per the spec's own "challenge this" request):**
+- **Rejected the literal `usefulness = relevance + novelty + specificity + actionability +
+  credibility`** (five summed LLM self-reported floats). ADR 0003 already found this exact
+  failure mode: asked directly for a 0-1 relevance number, gemma4 scored 65/101 posts >=0.8
+  ("almost everything is interesting"). Instead: LLM judgments are categorical
+  (`noveltyLevel`/`confidence`: low/medium/high, Laya's already-proven calibrated style), and the
+  actual ranking score is computed deterministically (`services/ranking/rankInsights.ts`) from
+  those categories plus already-deterministic signals (cluster cohesion, source count, the
+  reader's own `classification.relevanceWeights`, an optional profile-keyword match).
+- **Dropped "credibility" as its own scored dimension** — no reliable signal exists for it (no
+  verified-author-authority data on a LinkedIn post); folded into `confidence` (the LLM's own
+  confidence that its synthesized claim is concrete and well-supported), which has an actual
+  grounding question behind it.
+- **Kept clustering per-category, not cross-category.** The spec's own multi-agent example is
+  entirely within one category (`ai_ml`); true cross-category idea-merging is a materially larger
+  project, deferred to `docs/improvements.md` rather than attempted here.
+- **Insights don't self-report `sourcePostIds`.** Because the insight unit *is* the cluster, its
+  sources are already deterministic (`topicClusterPosts`, already ranked) — there's nothing for
+  the LLM to cite or hallucinate an index for. The old citation-validation mechanism (schema +
+  hand-written invariant check + bounded retry) is reused, just repointed at insight-quality
+  (empty title/summary on a claimed insight) instead of citation indices.
+- **Job "why relevant"/"skill gaps" (spec §8, marked "Potentially also") are deterministic
+  profile-keyword heuristics** (`services/jobs/aggregate.ts`'s `buildJobOpeningViews`), not a new
+  LLM call, and deliberately stay `null`/`[]` when the reader profile is empty rather than
+  guessing.
+- **Two previously-deferred decisions are being deliberately reversed, not accidentally
+  reintroduced**: grill D7 ("no engagement-bait filter in V0" — now `filtering.lowValuePhrases`,
+  same cheap substring mechanism as `celebrationPhrases`) and grill part-2/3 Q3 ("no personal
+  profile in V0, general judgement" — now a structured `profile: {interests, goals,
+  alreadyFamiliarWith}` config block, cashing in the old dead `relevanceProfile` field's intent
+  with a real shape instead of free text). Both are cited here so a future reader sees them as an
+  intentional pivot, not an oversight.
+
+**Chosen.** `topicClusters` gains `whyItMatters`/`suggestedAction`/`noveltyLevel`/`confidence`/
+`rank` columns (one migration, `0002_marvelous_black_tarantula.sql`); `summary` changes from a
+`{bullets: [{text, sources}]}` JSON shape to a plain synthesized-claim string. `summarize.ts`
+evaluates every cluster and writes an insight only when judged worth keeping. `digest.ts` ranks
+every insight across all categories, assigns `rank`, and writes finite-briefing stats (posts
+scanned/useful/filtered-as-noise/merged, estimated reading minutes) alongside the existing Job
+Market aggregates. `digestView.ts`/`app/digests/[id]/page.tsx` were updated to read the new shape
+(rank instead of the old `title === ''` "unfeatured" convention) — a data-shape adaptation, not
+the UI rework spec-second.md explicitly deferred.
+
+**Verified side-effect, not silently absorbed.** `pnpm db:generate` produced a broken migration
+for the `topic_clusters` recreate (SQLite's ADD-COLUMN-via-recreate strategy) — its generated
+`INSERT INTO __new_topic_clusters(...) SELECT ... FROM topic_clusters` referenced the five brand-
+new columns as if they already existed on the old table, which would have failed outright against
+the real dev database (6 existing rows). Fixed by hand before running it; worth watching for on
+any future multi-column-add-plus-type-change migration on this drizzle-kit version.
+
+**Where.** `src/db/schema.ts`, `src/db/migrations/0002_marvelous_black_tarantula.sql`,
+`src/config/schema.ts`, `digest.config.ts`, `src/services/summarization/`,
+`src/services/ranking/rankInsights.ts`, `src/services/jobs/aggregate.ts`,
+`src/pipeline/stages/{summarize,digest,filter}.ts`, `src/web/digestView.ts`,
+`app/digests/[id]/page.tsx`.
+
+## 12. Scheduler day-boundary bug: `runs.start()` ignored the injected `now`
+
+**Problem.** Found while running the full test suite for decision 11 (unrelated to it):
+`scheduler.test.ts`'s "resumes retrying the next day once the cap resets" test started failing —
+not flakily, but deterministically, once the real calendar date reached the test's own hardcoded
+"next day" fixture date. `checkSchedule`'s day-boundary logic (`succeededSince`/
+`countStartedSince`, both keyed on `runs.startedAt`) is designed to be deterministic on an
+injected `now` parameter, precisely so it's testable — but `repos.runs.start(id)` always stamped
+`startedAt: new Date()`, the real wall clock, regardless of what `now` the caller was simulating.
+In production this is latent and harmless (the real scheduler's `now` always *is* the real clock);
+it only became visible because a test's simulated "tomorrow" happened to coincide with the actual
+today.
+
+**Chosen.** `runs.start(id, startedAt = new Date())` and `runPipeline(deps, runId, stages, now =
+new Date())` both take an optional, defaulted time parameter; `checkSchedule` passes its own
+`now` through instead of letting the run pick a fresh one. Every other call site
+(`worker/main.ts`, `worker/poller.ts`) is unaffected — they don't pass `now`, so behavior is
+identical to before.
+
+**Where.** `src/db/repositories/runs.ts`, `src/pipeline/runner.ts`, `src/worker/scheduler.ts`.

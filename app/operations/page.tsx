@@ -19,10 +19,11 @@ export default function OperationsPage() {
   const runs = repos.runs.listRecent(20);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10">
       <div>
-        <h1 className="text-xl font-semibold">Operations</h1>
-        <p className="text-sm text-muted-foreground">Trigger runs, watch status, edit config.</p>
+        <p className="text-xs font-semibold tracking-widest text-accent-signal uppercase">Control room</p>
+        <h1 className="text-3xl font-bold tracking-tight">Operations</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Trigger runs, watch status, edit config.</p>
       </div>
 
       <section className="flex flex-col gap-3">
@@ -57,7 +58,7 @@ export default function OperationsPage() {
           <div className="flex flex-col gap-2">
             {runs.map((run) => (
               <Link key={run.id} href={`/operations/runs/${run.id}`}>
-                <Card className="transition-colors hover:bg-muted/50">
+                <Card className="border-border transition-colors hover:border-accent-signal/40 hover:bg-muted/50">
                   <CardContent className="flex items-center justify-between py-3">
                     <div className="flex flex-col">
                       <span className="text-sm font-medium">
