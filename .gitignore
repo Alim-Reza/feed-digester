@@ -24,9 +24,13 @@ coverage/
 .env.test
 
 # local runtime data (SQLite pipeline DB, scraped images, logs)
+# classifier-comparison.json contains real scraped LinkedIn post content/authors —
+# keep local-only, never commit
 data/*
 !data/.gitkeep
-!data/classifier-comparison.json
+
+# personal drafts, not for the public repo
+docs/drafts/
 
 # OCR trained data (large binaries, fetched at setup time, not source)
 *.traineddata

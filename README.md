@@ -78,10 +78,13 @@ Open http://localhost:3000.
 - `src/` — everything else: config, db, collector, services, llm, pipeline,
   worker, logging, and `web/` (the `web` process's own DB context and view
   helpers). See `docs/architecture.md` and `docs/project-memory.md`.
-- `data/` — gitignored: SQLite database, saved images, logs, HTML snapshots.
+- `data/` — gitignored: SQLite database, saved images, logs, HTML snapshots,
+  classifier fixtures (these contain real scraped LinkedIn content and are
+  never committed).
 - `docs/adr/` — architecture decision records for the departures from `docs/spec.md`.
 - `docs/` — all other project documentation (spec, architecture, decisions,
-  build journal, session handoff, slice plan, grill Q&A, drafts).
+  build journal, session handoff, slice plan, grill Q&A). `docs/drafts/` is
+  gitignored (personal writing drafts, not part of the project docs).
 
 ## License
 
