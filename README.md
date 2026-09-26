@@ -13,6 +13,8 @@ originally-approved architecture doc; see the warning at the top of
 `docs/plan.md`. All docs now live under one lowercase `docs/` tree to avoid
 repeating that.)
 
+![Today's Briefing screen](docs/screenshot.png)
+
 ## ⚠️ Before you use this
 
 This tool automates a logged-in browser session against **your own LinkedIn
